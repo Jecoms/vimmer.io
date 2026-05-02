@@ -1,5 +1,8 @@
 HANDOFF.md
 
+# vendored vim-wasm runtime (copied from node_modules at build time)
+public/vim-wasm/
+
 # build output
 dist/
 .output/

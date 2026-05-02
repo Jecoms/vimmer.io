@@ -1,0 +1,96 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Playground (vim.wasm POC)">
+  <article>
+    <h1>vim.wasm playground</h1>
+    <p>
+      A real Vim instance compiled to WebAssembly, running entirely in your
+      browser. This page is a Phase 2 proof of concept — not yet wired to any
+      lesson. Click the editor to focus, then type as you would in Vim.
+    </p>
+    <p class="meta" id="vim-status">Loading…</p>
+
+    <div id="vim-host">
+      <canvas id="vim-canvas" width="800" height="500"></canvas>
+      <input id="vim-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    </div>
+
+    <h2>Notes</h2>
+    <ul>
+      <li>If the editor never appears, your browser likely lacks
+        <code>SharedArrayBuffer</code> support or the cross-origin-isolation
+        headers didn't apply. Open devtools console for details.</li>
+      <li>Try basic motion (<code>hjkl</code>), insert mode (<code>i</code>),
+        and <code>:q</code>. The <code>!</code> shell isn't supported.</li>
+    </ul>
+  </article>
+</Base>
+
+<style>
+  #vim-host {
+    position: relative;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    line-height: 0;
+    background: #000;
+  }
+  #vim-canvas {
+    display: block;
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+  }
+  #vim-input {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+</style>
+
+<script>
+  import { VimWasm, checkBrowserCompatibility } from "vim-wasm";
+
+  const status = document.getElementById("vim-status")!;
+  const canvas = document.getElementById("vim-canvas") as HTMLCanvasElement;
+  const input = document.getElementById("vim-input") as HTMLInputElement;
+
+  const incompatibility = checkBrowserCompatibility();
+  if (incompatibility) {
+    status.textContent = `This browser can't run vim.wasm: ${incompatibility}`;
+  } else {
+    const vim = new VimWasm({
+      canvas,
+      input,
+      workerScriptPath: "/vim-wasm/vim.js",
+    });
+
+    vim.onVimInit = () => {
+      status.textContent = "Vim is running. Click the editor and start typing.";
+    };
+    vim.onVimExit = (code) => {
+      status.textContent = `Vim exited with status ${code}.`;
+    };
+    vim.onError = (err) => {
+      status.textContent = `Error: ${err.message}`;
+      console.error(err);
+    };
+
+    document.getElementById("vim-host")!.addEventListener("click", () => {
+      vim.focus();
+    });
+
+    vim.start({
+      cmdArgs: ["-u", "NONE", "-i", "NONE"],
+      files: {
+        "/home/web_user/welcome.txt":
+          "Welcome to vim.wasm.\n\n" +
+          "This is a real Vim, not an emulator. Try moving with hjkl,\n" +
+          "press i to insert, Esc to leave insert mode, and :q to quit.\n",
+      },
+    });
+  }
+</script>

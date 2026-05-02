@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "copy-vim-wasm": "node scripts/copy-vim-wasm.mjs",
+    "predev": "npm run copy-vim-wasm",
+    "prebuild": "npm run copy-vim-wasm",
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.2.1"
+    "astro": "^6.2.1",
+    "vim-wasm": "^0.0.13"
   }
 }
