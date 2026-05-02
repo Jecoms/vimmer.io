@@ -115,24 +115,23 @@ const { start } = Astro.props;
 
     host.addEventListener("click", () => vim.focus());
 
-    const escapeVimDoubleQuoted = (s: string): string =>
-      s
-        .replace(/\\/g, "\\\\")
-        .replace(/"/g, '\\"')
-        .replace(/\r\n/g, "\n")
-        .replace(/\n/g, "\\n")
-        .replace(/\r/g, "\\r");
+    const buildLineListExpr = (s: string): string => {
+      const lines = s.replace(/\r\n/g, "\n").split("\n");
+      // Drop the trailing empty produced by a final "\n" — that represents
+      // the file's EOF newline, not a blank line in the buffer.
+      if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+      // Single-quoted vimscript strings do NOT interpret backslash escapes,
+      // so we don't have to worry about \n splitting the cmdline. We only
+      // need to double any embedded single quotes.
+      return lines.map((l) => `'${l.replace(/'/g, "''")}'`).join(",");
+    };
 
     resetBtn.addEventListener("click", async () => {
       resetBtn.disabled = true;
       try {
-        const escaped = escapeVimDoubleQuoted(start);
-        // Stash the start content in register z, then replace the entire
-        // buffer with it. This avoids dropFile (which opens a new window)
-        // and works regardless of which mode the user was in.
-        await vim.cmdline(`let @z = "${escaped}"`);
+        const listExpr = buildLineListExpr(start);
         await vim.cmdline(
-          "silent! %delete _ | silent! 0put z | silent! $delete _ | silent! 1",
+          `silent! %delete _ | silent! call append(0, [${listExpr}]) | silent! $delete _ | silent! 1`,
         );
         status.textContent = "Editor reset to start.";
       } catch (err) {
