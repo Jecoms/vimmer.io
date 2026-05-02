@@ -115,24 +115,35 @@ const { start } = Astro.props;
 
     host.addEventListener("click", () => vim.focus());
 
+    // Vim's cmdline tokenizer splits on `|` even inside string literals, so
+    // any pipe in the line content (e.g. the basic-navigation demo's diagram)
+    // would chop the call into garbage. Avoid the issue entirely by emitting
+    // pipes as `nr2char(124)` and concatenating, so no raw `|` ever appears
+    // in the cmdline text.
+    const lineToExpr = (line: string): string => {
+      const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+      if (!line.includes("|")) return quote(line);
+      return line.split("|").map(quote).join(".nr2char(124).");
+    };
+
     const buildLineListExpr = (s: string): string => {
       const lines = s.replace(/\r\n/g, "\n").split("\n");
-      // Drop the trailing empty produced by a final "\n" — that represents
-      // the file's EOF newline, not a blank line in the buffer.
+      // Drop the trailing empty from a final "\n" — that represents the
+      // file's EOF newline, not a blank line in the buffer.
       if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-      // Single-quoted vimscript strings do NOT interpret backslash escapes,
-      // so we don't have to worry about \n splitting the cmdline. We only
-      // need to double any embedded single quotes.
-      return lines.map((l) => `'${l.replace(/'/g, "''")}'`).join(",");
+      return lines.map(lineToExpr).join(",");
     };
 
     resetBtn.addEventListener("click", async () => {
       resetBtn.disabled = true;
       try {
         const listExpr = buildLineListExpr(start);
-        await vim.cmdline(
-          `silent! %delete _ | silent! call append(0, [${listExpr}]) | silent! $delete _ | silent! 1`,
-        );
+        // Run each command in its own cmdline call rather than chaining with
+        // `|`, so the `|` (command-separator) ambiguity never bites us.
+        await vim.cmdline("silent! %delete _");
+        await vim.cmdline(`silent! call append(0, [${listExpr}])`);
+        await vim.cmdline("silent! $delete _");
+        await vim.cmdline("silent! 1");
         status.textContent = "Editor reset to start.";
       } catch (err) {
         status.textContent = `Reset failed: ${(err as Error).message}`;
