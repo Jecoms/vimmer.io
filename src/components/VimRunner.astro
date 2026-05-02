@@ -115,12 +115,25 @@ const { start } = Astro.props;
 
     host.addEventListener("click", () => vim.focus());
 
+    const escapeVimDoubleQuoted = (s: string): string =>
+      s
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/\r\n/g, "\n")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
+
     resetBtn.addEventListener("click", async () => {
       resetBtn.disabled = true;
       try {
-        const bytes = new TextEncoder().encode(start);
-        await vim.dropFile(exercisePath, bytes.buffer as ArrayBuffer);
-        await vim.cmdline("edit!");
+        const escaped = escapeVimDoubleQuoted(start);
+        // Stash the start content in register z, then replace the entire
+        // buffer with it. This avoids dropFile (which opens a new window)
+        // and works regardless of which mode the user was in.
+        await vim.cmdline(`let @z = "${escaped}"`);
+        await vim.cmdline(
+          "silent! %delete _ | silent! 0put z | silent! $delete _ | silent! 1",
+        );
         status.textContent = "Editor reset to start.";
       } catch (err) {
         status.textContent = `Reset failed: ${(err as Error).message}`;
