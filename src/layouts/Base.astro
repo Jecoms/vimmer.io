@@ -1,0 +1,36 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const fullTitle = title ? `${title} — vimmer.io` : "vimmer.io";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" class="brand">vimmer.io</a>
+      <nav>
+        <a href="/lessons">Lessons</a>
+        <a href="/tips">Tips</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <a href="https://github.com/vimmer-io/vimmer.io">Source on GitHub</a>
+    </footer>
+  </body>
+</html>

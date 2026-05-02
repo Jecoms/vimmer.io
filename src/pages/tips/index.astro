@@ -1,0 +1,30 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { tipTitle } from "../../lib/titles";
+
+const all = await getCollection("tips");
+
+const tips = all
+  .map((entry) => {
+    const slug = entry.id.split("/")[0];
+    return { slug, title: tipTitle(slug) };
+  })
+  .sort((a, b) => a.title.localeCompare(b.title));
+---
+<Base title="Tips" description="A collection of Vim tips.">
+  <article>
+    <h1>Tips</h1>
+    <p>
+      Bite-sized Vim tips. Skim, search, or read end-to-end — they don't
+      depend on each other.
+    </p>
+    <ul class="tip-list">
+      {tips.map((t) => (
+        <li>
+          <a href={`/tips/${t.slug}`}>{t.title}</a>
+        </li>
+      ))}
+    </ul>
+  </article>
+</Base>

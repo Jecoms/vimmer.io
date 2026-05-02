@@ -1,0 +1,43 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { lessonTitle, lessonNumber } from "../../lib/titles";
+
+const all = await getCollection("lessons");
+
+const bySlug = new Map<string, number>();
+for (const entry of all) {
+  const slug = entry.id.split("/")[0];
+  bySlug.set(slug, (bySlug.get(slug) ?? 0) + 1);
+}
+
+const lessons = [...bySlug.entries()]
+  .map(([slug, stepCount]) => ({
+    slug,
+    stepCount,
+    number: lessonNumber(slug),
+    title: lessonTitle(slug),
+  }))
+  .sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+---
+<Base title="Lessons" description="The vimmer.io lesson series.">
+  <article>
+    <h1>Lessons</h1>
+    <p>
+      Work through these in order if you're new to Vim. Each lesson is split
+      into a few short steps.
+    </p>
+    <ul class="lesson-list">
+      {lessons.map((l) => (
+        <li>
+          <a href={`/lessons/${l.slug}/1`}>
+            {l.number != null ? `${l.number}. ` : ""}{l.title}
+          </a>
+          <span class="meta">
+            {l.stepCount} step{l.stepCount === 1 ? "" : "s"}
+          </span>
+        </li>
+      ))}
+    </ul>
+  </article>
+</Base>

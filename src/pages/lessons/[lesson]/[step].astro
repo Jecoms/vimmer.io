@@ -1,0 +1,67 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import Base from "../../../layouts/Base.astro";
+import { lessonTitle, lessonNumber } from "../../../lib/titles";
+
+export async function getStaticPaths() {
+  const stepNum = (entry: CollectionEntry<"lessons">): number => {
+    const m = entry.id.split("/")[1]?.match(/^(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+
+  const all = await getCollection("lessons");
+
+  const grouped = new Map<string, CollectionEntry<"lessons">[]>();
+  for (const entry of all) {
+    const [lesson] = entry.id.split("/");
+    if (!grouped.has(lesson)) grouped.set(lesson, []);
+    grouped.get(lesson)!.push(entry);
+  }
+  for (const list of grouped.values()) {
+    list.sort((a, b) => stepNum(a) - stepNum(b));
+  }
+
+  const paths: Array<{
+    params: { lesson: string; step: string };
+    props: {
+      entry: CollectionEntry<"lessons">;
+      step: number;
+      totalSteps: number;
+    };
+  }> = [];
+
+  for (const [lesson, list] of grouped) {
+    list.forEach((entry, i) => {
+      paths.push({
+        params: { lesson, step: String(i + 1) },
+        props: { entry, step: i + 1, totalSteps: list.length },
+      });
+    });
+  }
+  return paths;
+}
+
+const { entry, step, totalSteps } = Astro.props;
+const { lesson } = Astro.params;
+const { Content } = await render(entry);
+
+const title = lessonTitle(lesson);
+const num = lessonNumber(lesson);
+const heading = num != null ? `${num}. ${title}` : title;
+
+const prev = step > 1 ? `/lessons/${lesson}/${step - 1}` : null;
+const next = step < totalSteps ? `/lessons/${lesson}/${step + 1}` : null;
+---
+<Base title={`${heading} (${step}/${totalSteps})`}>
+  <p class="meta"><a href="/lessons">← All lessons</a></p>
+  <h1>{heading}</h1>
+  <p class="meta">Step {step} of {totalSteps}</p>
+  <article>
+    <Content />
+  </article>
+  <nav class="step-nav">
+    {prev ? <a href={prev}>← Step {step - 1}</a> : <span />}
+    <span class="meta">{step} / {totalSteps}</span>
+    {next ? <a href={next}>Step {step + 1} →</a> : <span />}
+  </nav>
+</Base>
