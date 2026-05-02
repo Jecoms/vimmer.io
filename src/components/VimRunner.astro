@@ -126,28 +126,39 @@ const { start } = Astro.props;
       return line.split("|").map(quote).join(".nr2char(124).");
     };
 
-    const buildLineListExpr = (s: string): string => {
+    const splitLines = (s: string): string[] => {
       const lines = s.replace(/\r\n/g, "\n").split("\n");
       // Drop the trailing empty from a final "\n" — that represents the
       // file's EOF newline, not a blank line in the buffer.
       if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-      return lines.map(lineToExpr).join(",");
+      return lines;
     };
 
     resetBtn.addEventListener("click", async () => {
       resetBtn.disabled = true;
       try {
-        const listExpr = buildLineListExpr(start);
-        // Run each command in its own cmdline call rather than chaining with
-        // `|`, so the `|` (command-separator) ambiguity never bites us.
+        const lines = splitLines(start);
+        // Set line 1 first (the empty line %delete leaves behind), then
+        // append the rest. Per-line is more chatty than `call append(0, [...])`
+        // but each cmdline contains only one string expression, which makes
+        // failures land on a specific call we can catch.
         await vim.cmdline("silent! %delete _");
-        await vim.cmdline(`silent! call append(0, [${listExpr}])`);
-        await vim.cmdline("silent! $delete _");
+        if (lines.length > 0) {
+          await vim.cmdline(`call setline(1, ${lineToExpr(lines[0])})`);
+        }
+        for (let i = 1; i < lines.length; i++) {
+          await vim.cmdline(`call append(${i}, ${lineToExpr(lines[i])})`);
+        }
         await vim.cmdline("silent! 1");
+        // vim.wasm's cmdline path does NOT trigger a screen redraw on its own
+        // (the source warns about this in a comment) — without this the canvas
+        // keeps showing the pre-reset content until vim has another reason to
+        // repaint, e.g. the user pressing a key.
+        await vim.cmdline("redraw!");
         status.textContent = "Editor reset to start.";
       } catch (err) {
         status.textContent = `Reset failed: ${(err as Error).message}`;
-        console.error(err);
+        console.error("VimRunner reset failed:", err);
       } finally {
         resetBtn.disabled = false;
       }
