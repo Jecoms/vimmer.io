@@ -66,6 +66,14 @@ import Base from "../layouts/Base.astro";
       workerScriptPath: "/vim-wasm/vim.js",
     });
 
+    // Our canvas is fixed-size, so vim.wasm's window-resize handler (which
+    // resets canvas.width/height on every browser resize, clearing the
+    // bitmap) is just causing flicker/blackouts. Neutralize it.
+    const screen = (vim as unknown as { screen?: { resizer?: { doResize: () => void } } }).screen;
+    if (screen?.resizer) {
+      screen.resizer.doResize = () => {};
+    }
+
     vim.onVimInit = () => {
       status.textContent = "Vim is running. Click the editor and start typing.";
     };
