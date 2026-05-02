@@ -103,6 +103,19 @@ article h2, article h3 { line-height: 1.3; margin-top: 2rem; }
   font-size: 0.9rem;
 }
 
+.vim-goal-reached .step-next {
+  background: #16a34a;
+  color: #fff;
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.vim-goal-reached .step-next:hover {
+  background: #15803d;
+  text-decoration: none;
+}
+
 .lesson-list, .tip-list {
   list-style: none;
   padding: 0;

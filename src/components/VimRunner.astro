@@ -1,10 +1,11 @@
 ---
 interface Props {
   start: string;
+  goal?: string;
 }
-const { start } = Astro.props;
+const { start, goal } = Astro.props;
 ---
-<div class="vim-runner" data-start={start}>
+<div class="vim-runner" data-start={start} data-goal={goal ?? ""} data-has-goal={goal != null}>
   <p class="vim-status meta">Loading editor…</p>
   <div class="vim-host">
     <canvas class="vim-canvas" width="700" height="440"></canvas>
@@ -65,6 +66,10 @@ const { start } = Astro.props;
     opacity: 0.5;
     cursor: not-allowed;
   }
+  .vim-status.goal-reached {
+    color: #16a34a;
+    font-weight: 600;
+  }
 </style>
 
 <script>
@@ -76,9 +81,22 @@ const { start } = Astro.props;
 
   const incompatibility = checkBrowserCompatibility();
   const exercisePath = "/work/exercise.txt";
+  const pollPath = "/work/poll.txt";
+
+  // Normalize for goal comparison: unify line endings, strip trailing
+  // whitespace per line, drop trailing blank lines. Forgiving but not lax —
+  // exact characters still have to match.
+  const normalize = (s: string): string =>
+    s
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((l) => l.replace(/\s+$/, ""))
+      .join("\n")
+      .replace(/\n+$/, "");
 
   for (const runner of document.querySelectorAll<HTMLElement>(".vim-runner")) {
     const start = runner.dataset.start ?? "";
+    const goal = runner.dataset.hasGoal === "true" ? (runner.dataset.goal ?? "") : null;
     const status = runner.querySelector<HTMLElement>(".vim-status")!;
     const canvas = runner.querySelector<HTMLCanvasElement>(".vim-canvas")!;
     const input = runner.querySelector<HTMLInputElement>(".vim-input")!;
@@ -163,6 +181,61 @@ const { start } = Astro.props;
         resetBtn.disabled = false;
       }
     });
+
+    // Polled buffer-readback for goal detection. We write to a side path
+    // (pollPath) instead of the active file so the buffer's modified flag
+    // isn't toggled every tick. :export then ships the file's bytes back to
+    // JS via the onFileExport callback.
+    const readBuffer = (): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const prev = vim.onFileExport;
+        const t = setTimeout(() => {
+          vim.onFileExport = prev;
+          reject(new Error("Buffer read timed out"));
+        }, 1500);
+        vim.onFileExport = (_path, contents) => {
+          clearTimeout(t);
+          vim.onFileExport = prev;
+          resolve(new TextDecoder().decode(contents));
+        };
+        vim
+          .cmdline(`silent write! ${pollPath} | silent export ${pollPath}`)
+          .catch((err) => {
+            clearTimeout(t);
+            vim.onFileExport = prev;
+            reject(err);
+          });
+      });
+
+    if (goal != null) {
+      const targetNorm = normalize(goal);
+      let pollInFlight = false;
+      let goalReached = false;
+      const tick = async () => {
+        if (goalReached || pollInFlight || !vim.isRunning()) return;
+        pollInFlight = true;
+        try {
+          const current = await readBuffer();
+          if (!goalReached && normalize(current) === targetNorm) {
+            goalReached = true;
+            status.textContent = "✓ Goal reached — try the next step";
+            status.classList.add("goal-reached");
+            document.body.classList.add("vim-goal-reached");
+          }
+        } catch {
+          // vim was busy or transient error; try again next tick
+        } finally {
+          pollInFlight = false;
+        }
+      };
+      const previousVimInit = vim.onVimInit;
+      vim.onVimInit = () => {
+        previousVimInit?.();
+        // Poll a touch faster than once a second — fast enough to feel
+        // immediate when a learner finishes, slow enough not to thrash.
+        setInterval(tick, 750);
+      };
+    }
 
     vim.start({
       cmdArgs: ["-u", "NONE", "-i", "NONE", exercisePath],
