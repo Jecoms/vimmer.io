@@ -1,0 +1,139 @@
+---
+interface Props {
+  start: string;
+}
+const { start } = Astro.props;
+---
+<div class="vim-runner" data-start={start}>
+  <p class="vim-status meta">Loading editor…</p>
+  <div class="vim-host">
+    <canvas class="vim-canvas" width="700" height="440"></canvas>
+    <input
+      class="vim-input"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+    />
+  </div>
+  <div class="vim-actions">
+    <button type="button" class="vim-reset">Reset to start</button>
+  </div>
+</div>
+
+<style>
+  .vim-runner {
+    margin: 1.75rem 0 1.25rem;
+  }
+  .vim-host {
+    position: relative;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: auto;
+    line-height: 0;
+    background: #000;
+    max-width: 100%;
+  }
+  .vim-canvas {
+    display: block;
+  }
+  .vim-input {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+  .vim-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .vim-actions button {
+    font: inherit;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .vim-actions button:hover {
+    border-color: var(--fg);
+  }
+  .vim-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>
+
+<script>
+  import { VimWasm, checkBrowserCompatibility } from "vim-wasm";
+
+  type ScreenInternal = {
+    screen?: { resizer?: { doResize: () => void } };
+  };
+
+  const incompatibility = checkBrowserCompatibility();
+  const exercisePath = "/work/exercise.txt";
+
+  for (const runner of document.querySelectorAll<HTMLElement>(".vim-runner")) {
+    const start = runner.dataset.start ?? "";
+    const status = runner.querySelector<HTMLElement>(".vim-status")!;
+    const canvas = runner.querySelector<HTMLCanvasElement>(".vim-canvas")!;
+    const input = runner.querySelector<HTMLInputElement>(".vim-input")!;
+    const host = runner.querySelector<HTMLElement>(".vim-host")!;
+    const resetBtn = runner.querySelector<HTMLButtonElement>(".vim-reset")!;
+
+    if (incompatibility) {
+      status.textContent = `This browser can't run the editor: ${incompatibility}`;
+      resetBtn.disabled = true;
+      continue;
+    }
+
+    const vim = new VimWasm({
+      canvas,
+      input,
+      workerScriptPath: "/vim-wasm/vim.js",
+    });
+
+    const internal = vim as unknown as ScreenInternal;
+    if (internal.screen?.resizer) {
+      internal.screen.resizer.doResize = () => {};
+    }
+
+    vim.onVimInit = () => {
+      status.textContent = "Editor ready — click it and try the exercise.";
+    };
+    vim.onVimExit = () => {
+      status.textContent = "Editor exited. Refresh the page to restart.";
+    };
+    vim.onError = (err) => {
+      status.textContent = `Error: ${err.message}`;
+      console.error(err);
+    };
+
+    host.addEventListener("click", () => vim.focus());
+
+    resetBtn.addEventListener("click", async () => {
+      resetBtn.disabled = true;
+      try {
+        const bytes = new TextEncoder().encode(start);
+        await vim.dropFile(exercisePath, bytes.buffer as ArrayBuffer);
+        await vim.cmdline("edit!");
+        status.textContent = "Editor reset to start.";
+      } catch (err) {
+        status.textContent = `Reset failed: ${(err as Error).message}`;
+        console.error(err);
+      } finally {
+        resetBtn.disabled = false;
+      }
+    });
+
+    vim.start({
+      cmdArgs: ["-u", "NONE", "-i", "NONE", exercisePath],
+      dirs: ["/work"],
+      files: { [exercisePath]: start },
+    });
+  }
+</script>
