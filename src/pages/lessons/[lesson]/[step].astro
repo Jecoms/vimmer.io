@@ -76,7 +76,7 @@ const goal = goals[goalKey];
   <article>
     <Content />
   </article>
-  {demo && <VimRunner start={demo} goal={goal} />}
+  {demo && <VimRunner start={demo} goal={goal} lesson={lesson} step={step} />}
   <nav class="step-nav">
     {prev ? <a href={prev}>← Step {step - 1}</a> : <span />}
     <span class="meta">{step} / {totalSteps}</span>

@@ -2,10 +2,19 @@
 interface Props {
   start: string;
   goal?: string;
+  lesson?: string;
+  step?: number;
 }
-const { start, goal } = Astro.props;
+const { start, goal, lesson, step } = Astro.props;
 ---
-<div class="vim-runner" data-start={start} data-goal={goal ?? ""} data-has-goal={goal != null}>
+<div
+  class="vim-runner"
+  data-start={start}
+  data-goal={goal ?? ""}
+  data-has-goal={goal != null}
+  data-lesson={lesson ?? ""}
+  data-step={step != null ? String(step) : ""}
+>
   <p class="vim-status meta">Loading editor…</p>
   <div class="vim-host">
     <canvas class="vim-canvas" width="700" height="440"></canvas>
@@ -94,9 +103,33 @@ const { start, goal } = Astro.props;
       .join("\n")
       .replace(/\n+$/, "");
 
+  // Persist goal completion to localStorage. Schema:
+  //   vimmer:completed = { "<lesson-slug>": { "<step-number>": true } }
+  // Kept dumb on purpose so a future export/import flow can ship the blob
+  // verbatim and a future migration is easy.
+  const STORAGE_KEY = "vimmer:completed";
+  type ProgressMap = Record<string, Record<string, boolean>>;
+  const markCompleted = (lesson: string, step: string): void => {
+    if (!lesson || !step) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const data: ProgressMap = raw ? JSON.parse(raw) : {};
+      const lessonProgress = data[lesson] ?? {};
+      if (lessonProgress[step]) return;
+      lessonProgress[step] = true;
+      data[lesson] = lessonProgress;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // localStorage unavailable (private mode, quota, disabled) — silent
+      // failure is fine; progress is a nice-to-have, not critical.
+    }
+  };
+
   for (const runner of document.querySelectorAll<HTMLElement>(".vim-runner")) {
     const start = runner.dataset.start ?? "";
     const goal = runner.dataset.hasGoal === "true" ? (runner.dataset.goal ?? "") : null;
+    const lesson = runner.dataset.lesson ?? "";
+    const step = runner.dataset.step ?? "";
     const status = runner.querySelector<HTMLElement>(".vim-status")!;
     const canvas = runner.querySelector<HTMLCanvasElement>(".vim-canvas")!;
     const input = runner.querySelector<HTMLInputElement>(".vim-input")!;
@@ -221,6 +254,7 @@ const { start, goal } = Astro.props;
             status.textContent = "✓ Goal reached — try the next step";
             status.classList.add("goal-reached");
             document.body.classList.add("vim-goal-reached");
+            markCompleted(lesson, step);
           }
         } catch {
           // vim was busy or transient error; try again next tick

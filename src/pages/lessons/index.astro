@@ -29,15 +29,66 @@ const lessons = [...bySlug.entries()]
     </p>
     <ul class="lesson-list">
       {lessons.map((l) => (
-        <li>
+        <li data-slug={l.slug} data-steps={l.stepCount}>
           <a href={`/lessons/${l.slug}/1`}>
             {l.number != null ? `${l.number}. ` : ""}{l.title}
           </a>
           <span class="meta">
             {l.stepCount} step{l.stepCount === 1 ? "" : "s"}
           </span>
+          <span class="lesson-progress meta" aria-live="polite"></span>
         </li>
       ))}
     </ul>
   </article>
 </Base>
+
+<style>
+  /* Reserve space for the progress indicator so the layout doesn't shift
+     when the client script populates it after hydration. */
+  .lesson-progress {
+    display: inline-block;
+    min-width: 1.5em;
+  }
+  .lesson-progress.complete {
+    color: #16a34a;
+    font-weight: 600;
+  }
+</style>
+
+<script>
+  type ProgressMap = Record<string, Record<string, boolean>>;
+  const STORAGE_KEY = "vimmer:completed";
+
+  let data: ProgressMap = {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) data = JSON.parse(raw);
+  } catch {
+    // Bad JSON or storage disabled — leave indicators blank and bail.
+    data = {};
+  }
+
+  for (const li of document.querySelectorAll<HTMLLIElement>(".lesson-list li[data-slug]")) {
+    const slug = li.dataset.slug ?? "";
+    const totalSteps = parseInt(li.dataset.steps ?? "0", 10);
+    if (!slug || totalSteps <= 0) continue;
+
+    const lessonProgress = data[slug] ?? {};
+    let done = 0;
+    for (let i = 1; i <= totalSteps; i++) {
+      if (lessonProgress[String(i)]) done++;
+    }
+
+    const indicator = li.querySelector<HTMLElement>(".lesson-progress");
+    if (!indicator) continue;
+    if (done === 0) {
+      indicator.textContent = "";
+    } else if (done === totalSteps) {
+      indicator.textContent = "✓";
+      indicator.classList.add("complete");
+    } else {
+      indicator.textContent = `${done} / ${totalSteps} done`;
+    }
+  }
+</script>
