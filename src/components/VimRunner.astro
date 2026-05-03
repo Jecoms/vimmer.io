@@ -109,6 +109,20 @@ const { start, goal } = Astro.props;
       continue;
     }
 
+    // Phone soft keyboards break vim.wasm (focus, keycodes, viewport). Bail
+    // before constructing VimWasm so we don't fetch the WASM on mobile.
+    const isMobile = window.matchMedia(
+      "(pointer: coarse), (max-width: 720px)",
+    ).matches;
+    if (isMobile) {
+      status.textContent =
+        "This lesson is best on a desktop browser — the editor needs a real keyboard.";
+      status.classList.add("vim-notice");
+      host.hidden = true;
+      runner.querySelector<HTMLElement>(".vim-actions")!.hidden = true;
+      continue;
+    }
+
     const vim = new VimWasm({
       canvas,
       input,
