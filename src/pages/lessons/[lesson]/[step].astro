@@ -4,6 +4,8 @@ import Base from "../../../layouts/Base.astro";
 import VimRunner from "../../../components/VimRunner.astro";
 import { lessonTitle, lessonNumber } from "../../../lib/titles";
 
+type LessonLink = { href: string; number: number | null; title: string };
+
 const demos = import.meta.glob<string>("/lessons/**/*.demo", {
   query: "?raw",
   import: "default",
@@ -33,27 +35,60 @@ export async function getStaticPaths() {
     list.sort((a, b) => stepNum(a) - stepNum(b));
   }
 
+  const orderedLessons = [...grouped.keys()].sort((a, b) => {
+    const an = lessonNumber(a) ?? 0;
+    const bn = lessonNumber(b) ?? 0;
+    return an - bn;
+  });
+
   const paths: Array<{
     params: { lesson: string; step: string };
     props: {
       entry: CollectionEntry<"lessons">;
       step: number;
       totalSteps: number;
+      prevLesson: LessonLink | null;
+      nextLesson: LessonLink | null;
     };
   }> = [];
 
-  for (const [lesson, list] of grouped) {
+  orderedLessons.forEach((lesson, lessonIdx) => {
+    const list = grouped.get(lesson)!;
+    const prevSlug = orderedLessons[lessonIdx - 1] ?? null;
+    const nextSlug = orderedLessons[lessonIdx + 1] ?? null;
+
+    const prevLesson: LessonLink | null = prevSlug
+      ? {
+          href: `/lessons/${prevSlug}/${grouped.get(prevSlug)!.length}`,
+          number: lessonNumber(prevSlug),
+          title: lessonTitle(prevSlug),
+        }
+      : null;
+    const nextLesson: LessonLink | null = nextSlug
+      ? {
+          href: `/lessons/${nextSlug}/1`,
+          number: lessonNumber(nextSlug),
+          title: lessonTitle(nextSlug),
+        }
+      : null;
+
     list.forEach((entry, i) => {
       paths.push({
         params: { lesson, step: String(i + 1) },
-        props: { entry, step: i + 1, totalSteps: list.length },
+        props: {
+          entry,
+          step: i + 1,
+          totalSteps: list.length,
+          prevLesson,
+          nextLesson,
+        },
       });
     });
-  }
+  });
   return paths;
 }
 
-const { entry, step, totalSteps } = Astro.props;
+const { entry, step, totalSteps, prevLesson, nextLesson } = Astro.props;
 const { lesson } = Astro.params;
 const { Content } = await render(entry);
 
@@ -61,8 +96,24 @@ const title = lessonTitle(lesson);
 const num = lessonNumber(lesson);
 const heading = num != null ? `${num}. ${title}` : title;
 
-const prev = step > 1 ? `/lessons/${lesson}/${step - 1}` : null;
-const next = step < totalSteps ? `/lessons/${lesson}/${step + 1}` : null;
+const lessonLabel = (l: LessonLink) =>
+  l.number != null ? `Lesson ${l.number}: ${l.title}` : l.title;
+
+const prevHref = step > 1 ? `/lessons/${lesson}/${step - 1}` : prevLesson?.href ?? null;
+const prevIsBoundary = step === 1 && prevLesson != null;
+const prevLabel = prevIsBoundary
+  ? lessonLabel(prevLesson!)
+  : prevHref
+    ? `Step ${step - 1}`
+    : null;
+
+const nextHref = step < totalSteps ? `/lessons/${lesson}/${step + 1}` : nextLesson?.href ?? null;
+const nextIsBoundary = step === totalSteps && nextLesson != null;
+const nextLabel = nextIsBoundary
+  ? lessonLabel(nextLesson!)
+  : nextHref
+    ? `Step ${step + 1}`
+    : null;
 
 const demoKey = `/lessons/${lesson}/${step}.demo`;
 const goalKey = `/lessons/${lesson}/${step}.goal`;
@@ -78,8 +129,16 @@ const goal = goals[goalKey];
   </article>
   {demo && <VimRunner start={demo} goal={goal} />}
   <nav class="step-nav">
-    {prev ? <a href={prev}>← Step {step - 1}</a> : <span />}
+    {prevHref ? (
+      <a href={prevHref} class:list={["step-prev", prevIsBoundary && "lesson-boundary"]}>
+        ← {prevLabel}
+      </a>
+    ) : <span />}
     <span class="meta">{step} / {totalSteps}</span>
-    {next ? <a href={next} class="step-next">Step {step + 1} →</a> : <span />}
+    {nextHref ? (
+      <a href={nextHref} class:list={["step-next", nextIsBoundary && "lesson-boundary"]}>
+        {nextLabel} →
+      </a>
+    ) : <span />}
   </nav>
 </Base>
