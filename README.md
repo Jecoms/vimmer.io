@@ -4,7 +4,7 @@
 
 A free, browser-based Vim tutorial. Each lesson step embeds a real Vim
 instance compiled to WebAssembly — you read the prose, then practise in the
-editor below it without leaving the page.
+editor below it without leaving the page. Works best in Chrome.
 
 This is a revival of the original [vimmer.io](https://github.com/vimmer-io/vimmer.io),
 which had been sunset as a paid product. The lesson content under
