@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base
+  title="About"
+  description="About vimmer.io — a free, browser-based Vim tutorial."
+>
+  <article>
+    <h1>About</h1>
+    <p>
+      vimmer.io is a free, browser-based Vim tutorial. It's aimed at people who
+      want to learn Vim without having to install anything: each lesson step
+      embeds a real Vim instance compiled to WebAssembly, so you read the prose
+      and then practise in the editor right there on the page.
+    </p>
+    <p>
+      The editor is not a simulation — it's
+      <a href="https://github.com/rhysd/vim.wasm">vim.wasm</a>, an actual build
+      of Vim 8.2 running in your browser. Whatever works in Vim should work
+      here.
+    </p>
+    <p>
+      This site is a revival of the original
+      <a href="https://github.com/vimmer-io/vimmer.io">vimmer.io</a>, which had
+      been sunset as a paid product. The lesson and tip content is the
+      upstream's work, kept unchanged out of respect for the original author;
+      everything around it is a static rebuild on
+      <a href="https://astro.build">Astro</a>, hosted on Cloudflare Pages.
+    </p>
+    <p>
+      Browse the <a href="/lessons">lessons</a> or the
+      <a href="/tips">tips</a>, or grab the source
+      <a href="https://github.com/vimmer-io/vimmer.io">on GitHub</a>.
+    </p>
+  </article>
+</Base>
